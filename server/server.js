@@ -10,14 +10,18 @@ import connectDB from './configs/db.js'; // ⬅ Must include .js extension in ES
 
 import { inngest, functions } from "./inngest/index.js"
 import {serve} from 'inngest/express'
+import { clerkMiddleware } from '@clerk/express'
+
 
 const app=express();
 const PORT=process.env.PORT || 4000;
 
-// middleware 
+
+// middlewares
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({extended:true}));
+app.use(clerkMiddleware())
 
 
 
