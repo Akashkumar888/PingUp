@@ -7,6 +7,7 @@ import dotenv from 'dotenv'
 dotenv.config(); // ⬅ Load environment variables
 import path from 'path'
 import connectDB from './configs/db.js'; // ⬅ Must include .js extension in ESM
+
 import { inngest, functions } from "./inngest/index.js"
 import {serve} from 'inngest/express'
 
@@ -17,6 +18,8 @@ const PORT=process.env.PORT || 4000;
 app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({extended:true}));
+app.use(express.static(path.join(__dirname,'public')));
+
 
 // Connect DB
 await connectDB();
