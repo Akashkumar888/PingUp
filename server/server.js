@@ -8,6 +8,7 @@ dotenv.config(); // ⬅ Load environment variables
 import path from 'path'
 import connectDB from './configs/db.js'; // ⬅ Must include .js extension in ESM
 import { inngest, functions } from "./inngest/index.js"
+import {serve} from 'inngest/express'
 
 const app=express();
 const PORT=process.env.PORT || 4000;
