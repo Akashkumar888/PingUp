@@ -11,6 +11,7 @@ import connectDB from './configs/db.js'; // ⬅ Must include .js extension in ES
 import { inngest, functions } from "./inngest/index.js"
 import {serve} from 'inngest/express'
 import { clerkMiddleware } from '@clerk/express'
+import userRouter from './routes/userRoute.js';
 
 
 const app=express();
@@ -34,7 +35,7 @@ app.get('/',(req,res)=>{
 })
 // Set up the "/api/inngest" (recommended) routes with the serve handler
 app.use("/api/inngest", serve({ client: inngest, functions }));
-
+app.use('/api',userRouter);
 
 app.listen(PORT,()=>{
   console.log(`Server is running on port :http://localhost:${PORT}`)
