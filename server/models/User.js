@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const userSchema=new mongoose.Schema({
-  _id:{
+  _id:{ // because you're using Clerk's userId
   type:String,
   required:true,
   },
@@ -32,7 +32,7 @@ const userSchema=new mongoose.Schema({
  location:{
   type:String,
   default:"",
- },
+ }, // relationships
  followers:[{
   type:String,
   ref:"User",
@@ -71,3 +71,6 @@ export default userModel;
 // If you want the collection name to stay exactly User instead of users, you could explicitly pass it:
 // const userModel = mongoose.models.User || mongoose.model('User', userSchema, 'User');
 
+// timestamps: true → automatically creates createdAt and updatedAt.
+// minimize: false → ensures empty objects are stored as {} instead of being removed.
+// mongoose.models.Connection || ... → prevents model overwrite error during hot-reload (e.g., in Next.js).
