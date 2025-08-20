@@ -1,6 +1,9 @@
 // server.js
-import dotenv from "dotenv";
-dotenv.config();   // must be first! // ⬅ Load environment variables // no path needed
+import "dotenv/config";
+
+// import dotenv from "dotenv";
+// dotenv.config();   // must be first! // ⬅ Load environment variables // no path needed
+
 
 // older ways const require
 // modern ways import export 
@@ -13,6 +16,7 @@ import { inngest, functions } from "./inngest/index.js"
 import {serve} from 'inngest/express'
 import { clerkMiddleware } from '@clerk/express'
 import userRouter from './routes/userRoute.js';
+
 
 
 const app=express();

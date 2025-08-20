@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
-dotenv.config();   // must be first! // ⬅ Load environment variables // no path needed
+// import dotenv from "dotenv";
+// dotenv.config();   // must be first! // ⬅ Load environment variables // no path needed
 
 import ImageKit from "imagekit";
 
