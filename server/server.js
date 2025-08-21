@@ -36,7 +36,7 @@ await connectDB();
 
 
 app.get('/',(req,res)=>{
-  res.send("Working");
+  res.send("Server is Working");
 })
 // Set up the "/api/inngest" (recommended) routes with the serve handler
 app.use("/api/inngest", serve({ client: inngest, functions }));

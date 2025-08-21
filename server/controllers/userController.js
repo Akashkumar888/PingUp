@@ -8,7 +8,7 @@ import fs from 'fs'
 // ----------------------
 export const getUserData = async (req, res) => {
   try {
-    const { userId } = await req.auth(); //✅Extract userId from Clerk decodes JWT/session here
+    const { userId } =  req.auth(); //✅Extract userId from Clerk decodes JWT/session here
     const user = await userModel.findById(userId); // ✅ Find user in DB
 
     if (!user) return res.json({ success: false, message: 'No user found' });
@@ -26,7 +26,7 @@ export const getUserData = async (req, res) => {
 // ----------------------
 export const updateUserData = async (req, res) => {
   try {
-    const { userId } = await req.auth(); // ✅ Extract logged-in userId
+    const { userId } =  req.auth(); // ✅ Extract logged-in userId
     let { username, bio, full_name, location } = req.body;
 
     // ✅ Fetch current user details
@@ -121,7 +121,7 @@ export const updateUserData = async (req, res) => {
 // find user using username, email, location, fileName
 export const discoverUsers = async (req, res) => {
   try {
-    const { userId } = await req.auth();  // ✅ extracting logged-in user's ID
+    const { userId } =  req.auth();  // ✅ extracting logged-in user's ID
     const { input } = req.body;     // ✅ input string from frontend (search query)
 
     // 🔍 Query the database for users matching input in username/email/full_name/location
@@ -151,7 +151,7 @@ export const discoverUsers = async (req, res) => {
 // ----------------------
 export const followUser = async (req, res) => {
   try {
-    const { userId } = await req.auth();
+    const { userId } =  req.auth();
     const { id } = req.body; // the target user to follow
 
     if (userId === id) {
@@ -194,7 +194,7 @@ export const followUser = async (req, res) => {
 // ----------------------
 export const unfollowUser = async (req, res) => {
   try {
-    const { userId } = await req.auth();
+    const { userId } =  req.auth();
     const { id } = req.body; // the target user to follow
     
     const user=await userModel.findById(userId);
@@ -217,7 +217,7 @@ export const unfollowUser = async (req, res) => {
 // send connection request
 export const sendConnectionRequest=async(req,res)=>{
   try {
-    const { userId } = await req.auth();
+    const { userId } =  req.auth();
     const {id}=req.body;
 
     //check if user has sent more than 20 connections request in the last 24 hours 
@@ -276,7 +276,7 @@ export const sendConnectionRequest=async(req,res)=>{
 // get user connection 
 export const getUserConnections=async(req,res)=>{
   try {
-    const { userId } = await req.auth();
+    const { userId } =  req.auth();
     const user=await userModel.findById(userId).populate("connections following followers");
 
     // Uses .populate("connections following followers") → replaces the ObjectId references with the actual user documents from those collections.
@@ -303,7 +303,7 @@ export const getUserConnections=async(req,res)=>{
 // Accept connection request
 export const acceptConnectionRequest=async(req,res)=>{
   try {
-    const { userId } = await req.auth();
+    const { userId } =  req.auth();
     const {id}=req.body;
 
     const connection =await connectionModel.findOne({
