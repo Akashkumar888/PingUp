@@ -1,5 +1,7 @@
 // server.js
-import "dotenv/config";
+import express from 'express'
+import cors from 'cors' 
+import 'dotenv/config';
 
 // import dotenv from "dotenv";
 // dotenv.config();   // must be first! // ⬅ Load environment variables // no path needed
@@ -7,9 +9,7 @@ import "dotenv/config";
 
 // older ways const require
 // modern ways import export 
-import express from 'express'
-import cors from 'cors' 
-import path from 'path'
+
 import connectDB from './configs/db.js'; // ⬅ Must include .js extension in ESM
 
 import { inngest, functions } from "./inngest/index.js"
