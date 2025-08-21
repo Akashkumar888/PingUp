@@ -1,6 +1,3 @@
-// import dotenv from "dotenv";
-// dotenv.config();   // must be first! // ⬅ Load environment variables // no path needed
-
 import ImageKit from "imagekit";
 
 var imagekit = new ImageKit({
@@ -9,4 +6,4 @@ var imagekit = new ImageKit({
     urlEndpoint : process.env.IMAGEKIT_URL_ENDPOINT
 });
 
-export default imagekit
+export default imagekit;
