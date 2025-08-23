@@ -1,6 +1,6 @@
 
 import express from 'express'
-import { AddPost, getFeedPosts, likePost } from '../controllers/postController.js';
+import { AddPost, getFeedPosts, likePost } from '../controllers/PostController.js';
 import upload from '../configs/multer.js';
 import { protect } from '../middlewares/auth.js';
 const postRouter=express.Router();
