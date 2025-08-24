@@ -4,6 +4,7 @@ import userModel from "../models/User.js";
 import connectionModel from "../models/Connection.js";
 import sendEmail from "../configs/nodeMailer.js";
 import storyModel from "../models/Story.js";
+import messageModel from "../models/Message.js";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "pingup-app" });
@@ -129,6 +130,37 @@ const deleteStory=inngest.createFunction(
 );
 
 
+export const sendNotificationOfUnseenMessages=inngest.createFunction(
+  {id:"send-unseen-messages-notification"},
+  {cron:"TZ=America/New_York 0 9 * * *"},
+  async({step})=>{
+  const messages=await messageModel.find({seen:false}).populate("to_user_id");
+  const unseenCount={};
+  messages.map(message=>{
+    unseenCount[message.to_user_id._id]=(unseenCount[message.to_user_id._id] || 0 ) +1 ;
+  })
+  for (const userId in unseenCount) {
+    const user=await userModel.findById(userId);
+    const subject=`You have ${unseenCount[userId]} unseen messages`;
+
+    const body=`<div style="font-family: Arial, sans-serif; padding: 20px;">
+  <h2>Hi ${user.full_name}</h2>
+  <p>You have ${unseenCount[userId]} unseen messages</p>
+  <p>Click <a href="${process.env.FRONTEND_URL}/messages" style="color: #10b981;">here</a>to view them</p>
+  <br>
+  <p>Thanks,<br>Pingup - Stay Connected</p>
+</div>
+    `
+    await sendEmail({
+     to:user.email,
+     subject,
+     body,
+    })
+  }
+  return {message:"Notification send"};
+  }
+)
+
 // Create an empty array where we'll export future Inngest functions
 export const functions = [
   syncUserCreation,
@@ -136,5 +168,6 @@ export const functions = [
   syncUserDeletion,
   sendNewConnectionRequestReminder,
   deleteStory,
+  sendNotificationOfUnseenMessages,
 ];
 
