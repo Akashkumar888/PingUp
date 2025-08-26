@@ -8,7 +8,7 @@ import Discovers from './pages/Discovers'
 import Feed from './pages/Feed'
 import Layout from './pages/Layout'
 import Message from './pages/Message'
-import CreatePost from './pages/Createpost'
+import CreatePost from './pages/CreatePost'
 import {useUser,useAuth} from '@clerk/clerk-react'
 import toast, {Toaster} from 'react-hot-toast';
 import { useEffect } from 'react'
