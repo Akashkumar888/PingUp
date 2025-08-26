@@ -6,7 +6,7 @@ import {protect} from '../middlewares/auth.js'
 import upload from "../configs/multer.js"
 messageRouter.get("/:userId",sseController);
 messageRouter.post("/send",upload.single("image"),protect,sendMessage);
-messageRouter.get("/get",protect,getChatMessages);
+messageRouter.post("/get",protect,getChatMessages);
 
 export default messageRouter;
 

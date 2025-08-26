@@ -1,20 +1,80 @@
 
 import React, { useEffect, useRef, useState } from 'react'
-import { dummyMessagesData, dummyUserData } from '../assets/assets'
 import { ImageIcon, SendHorizonal, SendIcon } from 'lucide-react';
-
+import {useDispatch, useSelector} from 'react-redux';
+import {useParams} from 'react-router-dom'
+import { useAuth } from '@clerk/clerk-react';
+import toast from 'react-hot-toast';
+import api from '../api/axios';
+import { addMessage, fetchMessages, resetMessages} from '../features/messages/messageSlice';
 
 const ChatBox = () => {
-  const messages=dummyMessagesData;
-  const [text,setText]=useState();
-  const [user,setUser]=useState(dummyUserData);
+  const {messages}=useSelector((state)=>state.messages);
+  const connections=useSelector((state)=>state.connections.connections);
+
+  const {userId}=useParams();
+  const {getToken}=useAuth();
+  const dispatch=useDispatch();
+
+  const [text,setText]=useState("");
+  const [user,setUser]=useState(null);
   const [images,setImages]=useState(null);
   const messageEndRef=useRef(null);
 
-  const sendMessage=async()=>{
+  
+  const fetchUserMessages=async()=>{
+     try {
+      const token=await getToken();
+      dispatch(fetchMessages({token,userId}));
+     } catch (error) {
+       toast.error(error.message);
+     }
+  }
 
+  const sendMessage=async()=>{
+     try {
+      if(!text && !images)return;
+      const token=await getToken();
+      const formData=new FormData();
+      formData.append("to_user_id",userId);
+      formData.append("text",text);
+      images && formData.append("image",images);
+
+      const {data}=await api.post("/api/message/send",formData,{
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      })
+      if(data.success){
+        setText("");
+        setImages(null);
+        dispatch(addMessage(data.message));
+      }
+      else{
+        throw new Error(data.message);
+      }
+     } catch (error) {
+      toast.error(error.message);
+     }
   }
   
+
+  useEffect(()=>{
+  fetchUserMessages();
+  return ()=>{
+    dispatch(resetMessages())
+  }
+  },[userId])
+
+
+  useEffect(()=>{
+  if(connections.length > 0){
+    const user=connections.find(connection=>connection._id===userId);
+    setUser(user);
+  }
+  },[connections,userId]);
+
+
   useEffect(()=>{
     messageEndRef.current?.scrollIntoView({behavior:'smooth'});
   },[messages]);
@@ -50,7 +110,19 @@ const ChatBox = () => {
       </div>
       <div className="px-4">
         <div className="flex items-center gap-3 pl-5 p-1.5 bg-white w-full max-w-xl mx-auto border border-gray-200 shadow rounded-full mb-5">
-          <input type="text" placeholder='Type a message...' className='flex-1 outline-none text-slate-700 ' onKeyDown={(e)=>e.key==='Enter'} onChange={(e)=>setText(e.target.value)} value={text}/>
+        <input 
+            type="text"
+            placeholder="Type a message..."
+            className="flex-1 outline-none text-slate-700"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault(); // prevent newline or form submit
+                sendMessage();
+              }
+            }}
+          />
           <label htmlFor="image" className='cursor-pointer'>
             {
               images ? <img src={URL.createObjectURL(images)} alt=""  className='h-8 rounded'/> : <ImageIcon className='size-7 text-gray-400 cursor-pointer'/>

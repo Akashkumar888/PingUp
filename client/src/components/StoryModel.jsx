@@ -29,7 +29,29 @@ const StoryModel = ({setShowModel,fetchStories}) => {
           setPreviewUrl(null);
           return ;
         }
-        const video=document.createElement("");
+        const video=document.createElement("video");
+        video.preload="metadata";
+        video.onloadedmetadata=()=>{
+          window.URL.revokeObjectURL(video.src);
+          if(video.duration > MAX_VIDEO_DURATION){
+            toast.error(`Video duration cannot exceed 1 minute`);
+            setMedia(null);
+            setPreviewUrl(null);
+          }
+          else{
+            setMedia(file);
+            setPreviewUrl(URL.createObjectURL(file));
+            setText(" ");
+            setMode("media");
+          }
+        }
+        video.src=URL.createObjectURL(file);
+      }
+      else if(file.type.startsWith("image")){
+        setMedia(file);
+        setPreviewUrl(URL.createObjectURL(file));
+        setText(" ");
+        setMode("media");
       }
     }
   }
@@ -103,15 +125,12 @@ const StoryModel = ({setShowModel,fetchStories}) => {
          </button>
          {/* 2️⃣ Nesting <input> inside <label> (implicit association) */}
          <label  className={`flex-1 flex items-center justify-center gap-2 p-2 rounded cursor-pointer ${mode==='media'?"bg-white text-black":"bg-zinc-800"}`}>
-          <input onChange={(e)=>{handleMediaUpload(e); setMode('media'); }} type="file" accept='image/* , video/*' className='hidden'/>
+          <input onChange={handleMediaUpload} type="file" accept='image/* , video/*' className='hidden'/>
           <Upload size={18}/> Photo/Video
          </label>
         </div>
          <button onClick={()=>toast.promise(handleCreateStory(),{
-          loading:'Saving...',
-          success: <p>Story Added</p>,
-          error:e=><p>{e.message}</p>
-         })} className='flex items-center justify-center gap-2 text-white py-3 mt-4 w-full rounded bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 active:scale-95 transition cursor-pointer'>
+          loading:'Saving...',})} className='flex items-center justify-center gap-2 text-white py-3 mt-4 w-full rounded bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 active:scale-95 transition cursor-pointer'>
          <Sparkle size={18}/> Create Story</button>
       </div>
     </div>
