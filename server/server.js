@@ -19,7 +19,7 @@ import userRouter from './routes/userRoute.js';
 import postRouter from './routes/postRoute.js';
 import storyRouter from './routes/storyRoute.js';
 import messageRouter from './routes/messageRoute.js';
-
+import commentRouter from "./routes/commentRoutes.js";
 
 
 const app=express();
@@ -47,6 +47,7 @@ app.use('/api/user',userRouter);
 app.use('/api/post',postRouter);
 app.use('/api/story',storyRouter);
 app.use('/api/message',messageRouter);
+app.use("/api/comment", commentRouter);
 
 app.listen(PORT,()=>{
   console.log(`Server is running on port :http://localhost:${PORT}`)

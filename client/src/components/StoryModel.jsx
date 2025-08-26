@@ -2,6 +2,8 @@
 import { ArrowLeft, Sparkle, TextIcon, Upload } from 'lucide-react';
 import React, { useState } from 'react'
 import {toast} from 'react-hot-toast'
+import api from '../api/axios';
+import { useAuth } from '@clerk/clerk-react';
 
 const StoryModel = ({setShowModel,fetchStories}) => {
   const bgColors=["#4f46e5","#7c3aed","#db2777","#e11d48","#ea8a04","#bd9488"];
@@ -10,18 +12,59 @@ const StoryModel = ({setShowModel,fetchStories}) => {
   const [text,setText]=useState("");
   const [media,setMedia]=useState(null);
   const [previewUrl,setPreviewUrl]=useState(null);
+  
+  const {getToken}=useAuth();
+
+  const MAX_VIDEO_DURATION=60; // seconds 
+  const MAX_VIDEO_SIZE_MB=50;// in mb
+
 
   const handleMediaUpload=(e)=>{
     const file=e.target.files?.[0];
     if(file){
-      setMedia(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      if(file.type.startsWith("video")){// bytes 
+        if(file.size>MAX_VIDEO_SIZE_MB*1024*1024){
+          toast.error(`Video file size cannot exceed ${MAX_VIDEO_SIZE_MB}MB.`)
+          setMedia(null)
+          setPreviewUrl(null);
+          return ;
+        }
+        const video=document.createElement("");
+      }
     }
   }
 
-  const handleCreateStory=async (e)=>{
+  const handleCreateStory=async ()=>{
+    const media_type=mode==='media'? media?.type.startsWith('image')?
+    "image":"video":"text";
+    if(media_type==="text" && !text){
+      return toast.error("Please enter some text.");
+    }
+    let formData=new FormData;
     
+    formData.append("content",text);
+    formData.append("media_type",media_type);
+    media && formData.append("media",media);
+    formData.append("background_color",background);
     
+    const token=await getToken();
+    try {
+      const {data}=await api.post(`/api/story/create`,formData,{
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      })
+      if(data.success){
+        setShowModel(false);
+        toast.success("Story created successfully");
+        fetchStories(); 
+      }
+      else{
+        toast.error(data.message);
+      }
+    } catch (error) {
+       toast.error(error.message);
+    }
   }
   return (
     <div className='fixed inset-0 z-110 min-h-screen bg-black/80 backdrop-blur text-white flex items-center justify-center p-4'>

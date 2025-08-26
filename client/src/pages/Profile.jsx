@@ -1,13 +1,15 @@
 
-import React, { use, useEffect, useState } from 'react'
+import React, {useEffect, useState } from 'react'
 import {Link, useParams} from "react-router-dom";
-import { dummyPostsData, dummyUserData } from '../assets/assets';
 import Loading from '../components/Loading';
 import UserProfileInfo from '../components/UserProfileInfo';
 import PostCard from '../components/PostCard';
 import moment from 'moment';
 import ProfileModel from '../components/ProfileModel';
-
+import { useSelector } from 'react-redux';
+import { useAuth } from '@clerk/clerk-react';
+import api from "../api/axios";
+import toast from 'react-hot-toast';
 
 const Profile = () => {
   // :profileId is a dynamic placeholder in the URL.
@@ -15,22 +17,43 @@ const Profile = () => {
 // If the user visits /profile/45, profileId will be "45".
 // useParams() → for path variables like /product/:id
 // useLocation() + URLSearchParams → for query strings like ?q=react
-
-
+  
+  const currentUser=useSelector((state)=>state.user.value);
+  const {getToken}=useAuth();
   const {profileId}=useParams();
   const [user,setUser]=useState(null);
   const [posts,setPosts]=useState([]);
   const [activeTab,setActiveTab]=useState('posts');
   const [showEdit,setShowEdit]=useState(false);
 
-  const fetchUser=()=>{
-  setUser(dummyUserData);
-  setPosts(dummyPostsData);
+  const fetchUser=async(profileId)=>{
+    const token=await getToken();
+    try {
+      const {data}=await api.post("/api/user/profiles",{profileId}, {
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      });
+      if(data.success){
+       setUser(data.profile);
+       setPosts(data.posts);
+      }
+      else{
+        toast.error(data.message);
+      }
+    } catch (error) {
+        toast.error(error.message);
+    }
   }
 
   useEffect(()=>{
-    fetchUser();
-  },[]);
+    if(profileId){
+      fetchUser(profileId);
+    }
+    else{
+      fetchUser(currentUser._id);
+    }
+  },[profileId,currentUser]);
 
 
   return user ? (
