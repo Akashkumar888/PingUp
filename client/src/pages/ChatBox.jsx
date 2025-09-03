@@ -1,143 +1,240 @@
-
-import React, { useEffect, useRef, useState } from 'react'
-import { ImageIcon, SendHorizonal, SendIcon } from 'lucide-react';
-import {useDispatch, useSelector} from 'react-redux';
-import {useParams} from 'react-router-dom'
-import { useAuth } from '@clerk/clerk-react';
-import toast from 'react-hot-toast';
-import api from '../api/axios';
-import { addMessage, fetchMessages, resetMessages} from '../features/messages/messageSlice';
+// src/pages/ChatBox.jsx
+import React, { useEffect, useRef, useState } from "react";
+import { ImageIcon, SendHorizonal } from "lucide-react";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams } from "react-router-dom";
+import { useAuth } from "@clerk/clerk-react";
+import toast from "react-hot-toast";
+import api from "../api/axios";
+import {
+  addMessage,
+  fetchMessages,
+  resetMessages,
+  deleteMessage,  // ⬅️ add this
+  updateMessage,  // ⬅️ also needed for handleEdit
+} from "../features/messages/messageSlice";
+import MessageItem from "../components/MessageItem";
 
 const ChatBox = () => {
-  const {messages}=useSelector((state)=>state.messages);
-  const connections=useSelector((state)=>state.connections.connections);
+  const { messages } = useSelector((state) => state.messages);
+  const connections = useSelector((state) => state.connections.connections);
 
-  const {userId}=useParams();
-  const {getToken}=useAuth();
-  const dispatch=useDispatch();
+  const { userId: clerkUserId, getToken } = useAuth(); // ✅ this is YOU
+  const { userId: peerId } = useParams(); // ✅ the other person
+  const dispatch = useDispatch();
 
-  const [text,setText]=useState("");
-  const [user,setUser]=useState(null);
-  const [images,setImages]=useState(null);
-  const messageEndRef=useRef(null);
+  const [text, setText] = useState("");
+  const [user, setUser] = useState(null); // peer user object
+  const [media, setMedia] = useState(null); // renamed from images → media
+  const messageEndRef = useRef(null);
 
+  const MAX_FILE_SIZE_MB = 25;
   
-  const fetchUserMessages=async()=>{
-     try {
-      const token=await getToken();
-      dispatch(fetchMessages({token,userId}));
-     } catch (error) {
-       toast.error(error.message);
-     }
+    // Delete for me
+const handleDeleteForMe = async (id) => {
+  try {
+    const token = await getToken();
+    const { data } = await api.delete(`/api/message/${id}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (data.success) dispatch(deleteMessage(id));
+  } catch (err) {
+    toast.error(err.message);
   }
+};
 
-  const sendMessage=async()=>{
-     try {
-      if(!text && !images)return;
-      const token=await getToken();
-      const formData=new FormData();
-      formData.append("to_user_id",userId);
-      formData.append("text",text);
-      images && formData.append("image",images);
+// Delete for everyone
+const handleDeleteForEveryone = async (id) => {
+  try {
+    const token = await getToken();
+    const { data } = await api.delete(`/api/message/${id}/everyone`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (data.success) dispatch(deleteMessage(id));
+  } catch (err) {
+    toast.error(err.message);
+  }
+};
 
-      const {data}=await api.post("/api/message/send",formData,{
-        headers:{
-          Authorization:`Bearer ${token}`
-        }
-      })
-      if(data.success){
+// Edit
+const handleEdit = async (msg) => {
+  const newText = prompt("Edit your message:", msg.content);
+  if (!newText || !newText.trim()) return;
+  try {
+    const token = await getToken();
+    const { data } = await api.put(
+      `/api/message/${msg.id}/edit`,
+      { text: newText },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (data.success) dispatch(updateMessage(data.message));
+  } catch (err) {
+    toast.error(err.message);
+  }
+};
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      toast.error(`File size cannot exceed ${MAX_FILE_SIZE_MB} MB.`);
+      setMedia(null);
+      return;
+    }
+    if (!file.type.startsWith("image") && !file.type.startsWith("video")) {
+      toast.error("Only image and video files are allowed.");
+      setMedia(null);
+      return;
+    }
+    setMedia(file);
+  };
+
+  const fetchUserMessages = async () => {
+    try {
+      const token = await getToken();
+      dispatch(fetchMessages({ token, userId: peerId }));
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const sendMessage = async () => {
+    try {
+      if (!text && !media) return;
+
+      const token = await getToken();
+      const formData = new FormData();
+      formData.append("to_user_id", peerId);
+      formData.append("text", text);
+      if (media) formData.append("media", media);
+
+      const { data } = await api.post("/api/message/send", formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (data.success) {
         setText("");
-        setImages(null);
+        setMedia(null);
         dispatch(addMessage(data.message));
-      }
-      else{
+      } else {
         throw new Error(data.message);
       }
-     } catch (error) {
+    } catch (error) {
       toast.error(error.message);
-     }
-  }
-  
+    }
+  };
 
-  useEffect(()=>{
-  fetchUserMessages();
-  return ()=>{
-    dispatch(resetMessages())
-  }
-  },[userId])
+  useEffect(() => {
+    fetchUserMessages();
+    return () => {
+      dispatch(resetMessages());
+    };
+  }, [peerId]);
 
+  useEffect(() => {
+    if (connections.length > 0) {
+      const peer = connections.find((c) => c._id === peerId);
+      setUser(peer);
+    }
+  }, [connections, peerId]);
 
-  useEffect(()=>{
-  if(connections.length > 0){
-    const user=connections.find(connection=>connection._id===userId);
-    setUser(user);
-  }
-  },[connections,userId]);
+  useEffect(() => {
+    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-
-  useEffect(()=>{
-    messageEndRef.current?.scrollIntoView({behavior:'smooth'});
-  },[messages]);
-
-
-  return user && (
-    <div className='flex flex-col h-screen'>
-      <div className="flex items-center gap-2 p-2 md:px-10 xl:pl-42 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-300">
-        <img src={user.profile_picture} alt="" className='size-8 rounded-full'/>
-        <div className="">
-        <p className="font-medium">{user.full_name}</p>
-        <p className="text-sm text-gray-500 -mt-1.5">@{user.username}</p>
-        </div>
-      </div>
-      <div className="p-5 md:px-10 h-full overflow-scroll ">
-         <div className="space-y-4 max-w-4xl mx-auto">
-          {
-            messages.toSorted((a,b)=> new Date(a.createdAt) - new Date(b.createdAt)).map((message,index)=>(
-              <div key={index} className={`flex flex-col ${message.to_user_id!==user._id ?"items-start":"items-end"}`}>
-              <div className={`p-2 text-sm max-w-sm bg-white text-slate-700 rounded-lg shadow ${message.to_user_id!==user._id ?"rounded-bl-none":"rounded-br-none"}`}>
-                {
-                  message.message_type==='image' && (
-                    <img src={message.media_url} alt="" className='w-full max-w-sm rounded-lg mb-1'/>
-                  )
-                }
-                <p className=''>{message.text}</p>
-              </div>
-              </div>
-            ))
-          }
-          <div ref={messageEndRef} className=""/>
-         </div>
-      </div>
-      <div className="px-4">
-        <div className="flex items-center gap-3 pl-5 p-1.5 bg-white w-full max-w-xl mx-auto border border-gray-200 shadow rounded-full mb-5">
-        <input 
-            type="text"
-            placeholder="Type a message..."
-            className="flex-1 outline-none text-slate-700"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault(); // prevent newline or form submit
-                sendMessage();
-              }
-            }}
+  return (
+    user && (
+      <div className="flex flex-col h-screen">
+        <div className="flex items-center gap-2 p-2 md:px-10 xl:pl-42 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-300">
+          <img
+            src={user.profile_picture}
+            alt=""
+            className="size-8 rounded-full"
           />
-          <label htmlFor="image" className='cursor-pointer'>
-            {
-              images ? <img src={URL.createObjectURL(images)} alt=""  className='h-8 rounded'/> : <ImageIcon className='size-7 text-gray-400 cursor-pointer'/>
-            }
-            <input type="file" id="image" accept='image/*' hidden onChange={(e)=>setImages(e.target.files[0])}/>
-          </label>
-          <button onClick={sendMessage} className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-95 cursor-pointer text-white p-2 rounded-full">
-            <SendHorizonal size={18}/>
-          </button>
+          <div>
+            <p className="font-medium">{user.full_name}</p>
+            <p className="text-sm text-gray-500 -mt-1.5">@{user.username}</p>
+          </div>
         </div>
 
+        <div className="p-5 md:px-10 h-full overflow-scroll ">
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {messages
+              .toSorted((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+              .map((message) => (
+                <MessageItem
+                  key={message._id}
+                  message={{
+                    id: message._id,
+                    type: message.message_type, // "text" | "image" | "video"
+                    content: message.text || message.media_url,
+                    senderId: message.from_user_id,
+                  }}
+                  currentUser={{ id: clerkUserId }} // ✅ actual logged-in user
+                  onEdit={handleEdit}
+                  onDeleteForMe={handleDeleteForMe}
+                  onDeleteForEveryone={handleDeleteForEveryone}
+                />
+              ))}
 
+            <div ref={messageEndRef} />
+          </div>
+        </div>
+
+        <div className="px-4">
+          <div className="flex items-center gap-3 pl-5 p-1.5 bg-white w-full max-w-xl mx-auto border border-gray-200 shadow rounded-full mb-5">
+            <input
+              type="text"
+              placeholder="Type a message..."
+              className="flex-1 outline-none text-slate-700"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+            />
+
+            <label htmlFor="file" className="cursor-pointer">
+              {media ? (
+                media.type.startsWith("image") ? (
+                  <img
+                    src={URL.createObjectURL(media)}
+                    alt=""
+                    className="h-8 rounded"
+                  />
+                ) : (
+                  <video
+                    src={URL.createObjectURL(media)}
+                    className="h-8 rounded"
+                    muted
+                  />
+                )
+              ) : (
+                <ImageIcon className="size-7 text-gray-400 cursor-pointer" />
+              )}
+              <input
+                type="file"
+                id="file"
+                accept="image/*,video/*"
+                hidden
+                onChange={handleFileSelect}
+              />
+            </label>
+
+            <button
+              onClick={sendMessage}
+              className="bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-95 cursor-pointer text-white p-2 rounded-full"
+            >
+              <SendHorizonal size={18} />
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  );
+};
 
-export default ChatBox
+export default ChatBox;

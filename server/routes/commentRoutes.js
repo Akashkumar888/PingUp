@@ -1,6 +1,10 @@
-
 import express from "express";
-import { addComment, getComments, editComment, deleteComment } from "../controllers/CommentController.js";
+import {
+  addComment,
+  getComments,
+  editComment,
+  deleteComment,
+} from "../controllers/CommentController.js";
 import { protect } from "../middlewares/auth.js";
 
 const commentRouter = express.Router();

@@ -18,7 +18,7 @@ const messageSchema=new mongoose.Schema({
   },
   message_type:{
     type:String,
-    enum:["image","text"],
+    enum:["image","text","video"],
   },
   media_url:{
     type:String,
@@ -27,6 +27,10 @@ const messageSchema=new mongoose.Schema({
     type:Boolean,
     default:false,
   },
+  hiddenFor: { 
+    type: [String], 
+    default: [] 
+  }
 },{timestamps:true,minimize:false});
 
 const messageModel=mongoose.models.Message || mongoose.model("Message",messageSchema);

@@ -1,69 +1,77 @@
-
-import React, { useEffect, useState } from 'react'
-import { assets, dummyPostsData} from '../assets/assets';
-import Loading from '../components/Loading';
-import StoriesBar from '../components/StoriesBar';
-import PostCard from '../components/PostCard';
-import RecentMessages from '../components/RecentMessages';
-import {useAuth} from "@clerk/clerk-react";
+import React, { useEffect, useState } from "react";
+import Loading from "../components/Loading";
+import StoriesBar from "../components/StoriesBar";
+import PostCard from "../components/PostCard";
+import RecentMessages from "../components/RecentMessages";
+import { useAuth } from "@clerk/clerk-react";
 import api from "../api/axios";
-import toast from 'react-hot-toast';
+import toast from "react-hot-toast";
+import { assets } from "../assets/assets";
+// import assets from "../assets"; // uncomment if you have assets.js
 
 const Feed = () => {
-  const {getToken}=useAuth();
-  const [feeds,setFeeds]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const fetchFeeds=async()=>{
+  const { getToken } = useAuth();
+  const [feeds, setFeeds] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchFeeds = async () => {
     try {
-      const token=await getToken();
-      setLoading(true); // data load nhi hua hai tb 
-      const {data}=await api.get("/api/post/feed",{
-        headers:{
-          Authorization:`Bearer ${token}`
-        }
-      })
-      if(data.success){
-      setFeeds(data.posts);
-      }
-      else{
-      toast.error(data.message);
+      const token = await getToken();
+      setLoading(true);
+
+      const { data } = await api.get("/api/post/feed", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (data.success) {
+        setFeeds(data.posts);
+      } else {
+        toast.error(data.message);
       }
     } catch (error) {
       toast.error(error.message);
     }
-    setLoading(false); // data load hone ke baad 
-  }
+    setLoading(false);
+  };
 
-  useEffect(()=>{
+  useEffect(() => {
     fetchFeeds();
-  },[])
-  return ! loading ?(
-    <div className='h-full overflow-y-scroll no-scrollbar py-10 xl:pr-5 flex items-start justify-center xl:gap-8'>
-    {/* stories and post list   */}
-     <div className=''>
+  }, []);
+
+  return !loading ? (
+    <div className="h-full overflow-y-scroll no-scrollbar py-10 xl:pr-5 flex items-start justify-center xl:gap-8">
+      {/* stories and post list */}
       <div>
-        <StoriesBar/>
+        <StoriesBar />
+        <div className="p-4 space-y-6">
+          {feeds.map((post) => (
+            <PostCard key={post._id} post={post} fetchPosts={fetchFeeds} />
+          ))}
+        </div>
       </div>
-      <div className='p-4 space-y-6'>
-        {feeds.map((post)=>(
-           <PostCard key={post._id} post={post}/>
-        ))}
+
+      {/* Right sidebar */}
+      <div className="max-xl:hidden sticky top-20">
+        <div className="max-w-xs bg-white text-xs p-4 rounded-md flex flex-col gap-2 shadow">
+          <h3 className="text-slate-800 font-semibold">Sponsored</h3>
+          <img
+            src={assets.sponsored_img} // or assets.sponsored_img
+            alt="Sponsored"
+            className="w-full h-auto rounded-md object-cover"
+          />
+          <p className="text-slate-600 font-medium">Email Marketing</p>
+          <p className="text-slate-400 text-sm">
+            Supercharge your marketing with a powerful, easy-to-use platform built for results.
+          </p>
+        </div>
+        <RecentMessages />
       </div>
-     </div>
-     {/* Right sidebar  */}
-     <div className="max-xl:hidden sticky top-0">
-    <div className='max-w-xs bg-white text-xs p-4 rounded-md inline-flex flex-col gap-2 shadow'>
-      <h3 className='text-slate-800 font-semibold'>Sponsored</h3>
-      <img src={assets.sponsored_img} alt="" className='w-75 h-50 rounded-md'/>
-      <p className='text-slate-600'>Email Marketing</p>
-      <p className="text-slate-400">Supercharge your marketing with a powerful, easy-to-use platforms built for result.</p>
     </div>
-    <RecentMessages/>
-     </div>
-    </div>
-  ) :
-  <Loading/>
-}
+  ) : (
+    <Loading />
+  );
+};
 
-export default Feed
-
+export default Feed;

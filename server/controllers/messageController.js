@@ -1,108 +1,176 @@
+// controllers/messageController.js
 import imagekit from "../configs/imageKit.js";
 import messageModel from "../models/Message.js";
-import fs from 'fs'
 
-// create an empty object to store server side event contributions 
-let connections={};
+let connections = {}; // SSE clients
 
-// controller function for server side event endpoint
+// SSE connection
+export const sseController = (req, res) => {
+  const { userId } = req.params;
 
-export const sseController=async(req,res)=>{
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  connections[userId] = res;
+  res.write("log: Connected\n\n");
+
+  req.on("close", () => delete connections[userId]);
+};
+
+// Send message
+export const sendMessage = async (req, res) => {
   try {
-    const {userId}=req.params;
-    console.log("New client connected: ",userId);
-    // set sse headers
-    res.setHeader("Content-Type","text/event-stream");
-    res.setHeader("Cache-Control","no-cache");
-    res.setHeader("Connection","keep-alive");
-    res.setHeader("Access-Control-Allow-Origin","*");
-    //add the client's response object to the connection objects
-    connections[userId]=res;
-    // send an initial event to the client 
-    res.write("log: Connected to SSE stream\n\n");
-    // handle client disconnections
-    req.on("close",()=>{
-      //remove the client's response object from connections array 
-      delete connections[userId];
-      console.log("Client Disconnected.");
-    }) 
-  } catch (error) {
-    console.log(error);
-    res.json({success:false,message:error.message});
-  }
-}
+    const { userId } = req.auth();
+    const { to_user_id, text } = req.body;
+    const file = req.file;
 
-// send message 
-export const sendMessage=async(req,res)=>{
-  try {
-    const {userId}=req.auth();
-    const {to_user_id,text}=req.body;
-    const image=req.file;
-    let media_url="";
-    let message_type=image?'image':'text';
-    if(message_type==='image'){
-      let fileBuffer=fs.readFileSync(image.path);
-      const response=await imagekit.upload({
-        file:fileBuffer,
-        fileName:image.originalname,
-      })
-       media_url=imagekit.url({
-        path:response.filePath,
-        transformation:[
-          {quality:'auto'},
-          {format:'webp'},
-          {width:'1280'},
-        ]
-      })
+    let media_url = null;
+    let message_type = "text";
+
+    if (file) {
+      const base64File = file.buffer.toString("base64");
+      const response = await imagekit.upload({
+        file: base64File,
+        fileName: file.originalname,
+        useUniqueFileName: true,
+        folder: "/messages",
+      });
+
+      if (file.mimetype.startsWith("image")) {
+        message_type = "image";
+        media_url = imagekit.url({
+          path: response.filePath,
+          transformation: [{ quality: "auto" }, { format: "webp" }, { width: "1280" }],
+        });
+      } else if (file.mimetype.startsWith("video")) {
+        message_type = "video";
+        media_url = response.url;
+      }
     }
-    const message=await messageModel.create({
-      from_user_id:userId,
+
+    const message = await messageModel.create({
+      from_user_id: userId,
       to_user_id,
       text,
       message_type,
       media_url,
     });
-    res.json({success:true,message});
-    // send message to user_id using SSE
-    const messageWithUserData=await messageModel.findById(message._id).populate("from_user_id");
-    if(connections[to_user_id]){
-      connections[to_user_id].write(`data: ${JSON.stringify(messageWithUserData)}\n\n`);
+
+    if (connections[to_user_id]) {
+      connections[to_user_id].write(`data: ${JSON.stringify(message)}\n\n`);
     }
 
+    res.json({ success: true, message });
   } catch (error) {
-    console.log(error);
-    res.json({success:false,message:error.message});
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
   }
-}
+};
 
-// get chat message
-export const getChatMessages=async(req,res)=>{
+// Get chat messages
+export const getChatMessages = async (req, res) => {
   try {
-    const {userId}=req.auth();
-    const {to_user_id}=req.body;
-    const messages=await messageModel.find({
-      $or:[
-        {from_user_id:userId,to_user_id},
-        {from_user_id:to_user_id,to_user_id:userId},
-      ]
-    }).sort({created_at:-1});
-    // mark messages as seen
-    await messageModel.updateMany({from_user_id:to_user_id,to_user_id:userId},{seen:true});
-    res.json({success:true,messages});
-  } catch (error) {
-    console.log(error);
-    res.json({success:false,message:error.message});
-  }
-}
+    const { userId } = req.auth();
+    const { to_user_id } = req.body;
 
-export const getUserRecentMessages=async(req,res)=>{
+    const messages = await messageModel
+      .find({ $or: [{ from_user_id: userId, to_user_id }, { from_user_id: to_user_id, to_user_id: userId }] })
+      .sort({ createdAt: -1 });
+
+    await messageModel.updateMany({ from_user_id: to_user_id, to_user_id: userId }, { seen: true });
+
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get user's recent messages
+export const getUserRecentMessages = async (req, res) => {
   try {
-    const {userId}=req.auth();
-    const messages=await messageModel.find({to_user_id:userId}).populate('from_user_id to_user_id').sort({createdAt:-1});
-    res.json({success:true,messages});
-  } catch (error) {
-    console.log(error);
-    res.json({success:false,message:error.message});
-  }
-}
+    const { userId } = req.auth();
+    const messages = await messageModel
+      .find({ to_user_id: userId })
+      .populate("from_user_id to_user_id")
+      .sort({ createdAt: -1 });
 
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+// Edit message
+export const editMessage = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { id } = req.params;
+    const { text } = req.body;
+
+    const message = await messageModel.findById(id);
+    if (!message) return res.status(404).json({ success: false, message: "Message not found" });
+    if (String(message.from_user_id) !== String(userId)) return res.status(403).json({ success: false, message: "Not allowed" });
+
+    message.text = text;
+    message.isEdited = true;
+    await message.save();
+
+    if (connections[message.to_user_id]) {
+      connections[message.to_user_id].write(`data: ${JSON.stringify({ type: "EDIT", message })}\n\n`);
+    }
+
+    res.json({ success: true, message });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete message for me
+export const deleteForMe = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { id } = req.params;
+
+    const message = await messageModel.findById(id);
+    if (!message) return res.status(404).json({ success: false, message: "Message not found" });
+
+    message.hiddenFor = message.hiddenFor || [];
+    if (!message.hiddenFor.includes(userId)) message.hiddenFor.push(userId);
+    await message.save();
+
+    res.json({ success: true, id, scope: "me" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Delete message for everyone
+export const deleteForEveryone = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { id } = req.params;
+
+    const message = await messageModel.findById(id);
+    if (!message) return res.status(404).json({ success: false, message: "Message not found" });
+    if (String(message.from_user_id) !== String(userId)) return res.status(403).json({ success: false, message: "Not allowed" });
+
+    await messageModel.findByIdAndDelete(id);
+
+    if (connections[message.to_user_id]) {
+      connections[message.to_user_id].write(`data: ${JSON.stringify({ type: "DELETE", id })}\n\n`);
+    }
+
+    res.json({ success: true, id, scope: "everyone" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
