@@ -10,8 +10,8 @@ import {
   addMessage,
   fetchMessages,
   resetMessages,
-  deleteMessage,  // ⬅️ add this
-  updateMessage,  // ⬅️ also needed for handleEdit
+  deleteMessage,  // ⬅️ for deleting
+  updateMessage,  // ⬅️ for editing
 } from "../features/messages/messageSlice";
 import MessageItem from "../components/MessageItem";
 
@@ -19,60 +19,61 @@ const ChatBox = () => {
   const { messages } = useSelector((state) => state.messages);
   const connections = useSelector((state) => state.connections.connections);
 
-  const { userId: clerkUserId, getToken } = useAuth(); // ✅ this is YOU
-  const { userId: peerId } = useParams(); // ✅ the other person
+  const { userId: clerkUserId, getToken } = useAuth(); // ✅ logged-in user
+  const { userId: peerId } = useParams(); // ✅ peer user
   const dispatch = useDispatch();
 
   const [text, setText] = useState("");
-  const [user, setUser] = useState(null); // peer user object
-  const [media, setMedia] = useState(null); // renamed from images → media
-  const messageEndRef = useRef(null);
+  const [user, setUser] = useState(null); 
+  const [media, setMedia] = useState(null);
+  const containerRef = useRef(null); // 👈 your containerRef
 
   const MAX_FILE_SIZE_MB = 25;
-  
-    // Delete for me
-const handleDeleteForMe = async (id) => {
-  try {
-    const token = await getToken();
-    const { data } = await api.delete(`/api/message/${id}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (data.success) dispatch(deleteMessage(id));
-  } catch (err) {
-    toast.error(err.message);
-  }
-};
 
-// Delete for everyone
-const handleDeleteForEveryone = async (id) => {
-  try {
-    const token = await getToken();
-    const { data } = await api.delete(`/api/message/${id}/everyone`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (data.success) dispatch(deleteMessage(id));
-  } catch (err) {
-    toast.error(err.message);
-  }
-};
+  // Delete for me
+  const handleDeleteForMe = async (id) => {
+    try {
+      const token = await getToken();
+      const { data } = await api.delete(`/api/message/${id}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data.success) dispatch(deleteMessage(id));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
 
-// Edit
-const handleEdit = async (msg) => {
-  const newText = prompt("Edit your message:", msg.content);
-  if (!newText || !newText.trim()) return;
-  try {
-    const token = await getToken();
-    const { data } = await api.put(
-      `/api/message/${msg.id}/edit`,
-      { text: newText },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (data.success) dispatch(updateMessage(data.message));
-  } catch (err) {
-    toast.error(err.message);
-  }
-};
+  // Delete for everyone
+  const handleDeleteForEveryone = async (id) => {
+    try {
+      const token = await getToken();
+      const { data } = await api.delete(`/api/message/${id}/everyone`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data.success) dispatch(deleteMessage(id));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
 
+  // Edit message
+  const handleEdit = async (msg) => {
+    const newText = prompt("Edit your message:", msg.content);
+    if (!newText || !newText.trim()) return;
+    try {
+      const token = await getToken();
+      const { data } = await api.put(
+        `/api/message/${msg.id}/edit`,
+        { text: newText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (data.success) dispatch(updateMessage(data.message));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  // File select
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,6 +90,7 @@ const handleEdit = async (msg) => {
     setMedia(file);
   };
 
+  // Fetch messages
   const fetchUserMessages = async () => {
     try {
       const token = await getToken();
@@ -98,6 +100,7 @@ const handleEdit = async (msg) => {
     }
   };
 
+  // Send message
   const sendMessage = async () => {
     try {
       if (!text && !media) return;
@@ -124,6 +127,7 @@ const handleEdit = async (msg) => {
     }
   };
 
+  // On mount → fetch messages
   useEffect(() => {
     fetchUserMessages();
     return () => {
@@ -131,6 +135,7 @@ const handleEdit = async (msg) => {
     };
   }, [peerId]);
 
+  // Find peer user
   useEffect(() => {
     if (connections.length > 0) {
       const peer = connections.find((c) => c._id === peerId);
@@ -138,13 +143,20 @@ const handleEdit = async (msg) => {
     }
   }, [connections, peerId]);
 
+  // Auto-scroll when messages change
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [messages]);
 
   return (
     user && (
       <div className="flex flex-col h-screen">
+        {/* Header */}
         <div className="flex items-center gap-2 p-2 md:px-10 xl:pl-42 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-300">
           <img
             src={user.profile_picture}
@@ -157,7 +169,11 @@ const handleEdit = async (msg) => {
           </div>
         </div>
 
-        <div className="p-5 md:px-10 h-full overflow-scroll ">
+        {/* Messages container */}
+        <div
+          ref={containerRef} // 👈 containerRef applied
+          className="p-5 md:px-10 h-full overflow-y-scroll"
+        >
           <div className="space-y-4 max-w-4xl mx-auto">
             {messages
               .toSorted((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
@@ -166,21 +182,20 @@ const handleEdit = async (msg) => {
                   key={message._id}
                   message={{
                     id: message._id,
-                    type: message.message_type, // "text" | "image" | "video"
+                    type: message.message_type, 
                     content: message.text || message.media_url,
                     senderId: message.from_user_id,
                   }}
-                  currentUser={{ id: clerkUserId }} // ✅ actual logged-in user
+                  currentUser={{ id: clerkUserId }}
                   onEdit={handleEdit}
                   onDeleteForMe={handleDeleteForMe}
                   onDeleteForEveryone={handleDeleteForEveryone}
                 />
               ))}
-
-            <div ref={messageEndRef} />
           </div>
         </div>
 
+        {/* Input */}
         <div className="px-4">
           <div className="flex items-center gap-3 pl-5 p-1.5 bg-white w-full max-w-xl mx-auto border border-gray-200 shadow rounded-full mb-5">
             <input
